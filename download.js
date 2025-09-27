@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const fs = require('fs');
-const downloader = require('downloader');
+const downloader = require('./services/downloader');
 
 // Get video info
 router.post('/info', async (req, res) => {
@@ -47,3 +47,4 @@ router.post('/', async (req, res) => {
 
 
 module.exports = router;
+
