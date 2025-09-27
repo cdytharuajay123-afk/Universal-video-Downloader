@@ -39,16 +39,19 @@ async function getVideoInfo(url) {
       console.error("Invalid JSON from yt-dlp:", output.slice(0, 200));
       return {
         error: "yt-dlp did not return valid JSON",
-        raw: output.slice(0, 200) // send first part back for debugging
+        raw: output.slice(0, 200) // only return snippet, not full HTML
       };
     }
 
-    // Include ALL video formats (even if no audio, so 4K DASH is included)
-    const formats = (info.formats || [])
+    // Ensure formats array exists
+    const allFormats = Array.isArray(info.formats) ? info.formats : [];
+
+    // Include all video formats (even DASH 4K without audio)
+    const formats = allFormats
       .filter(f => f.vcodec !== 'none' && f.ext && f.format_id && f.height)
       .map(f => ({
         id: f.format_id,
-        display: `${f.format_note || f.height + 'p' || ''}${f.fps ? ` • ${f.fps}fps` : ''}`,
+        display: `${f.format_note || (f.height ? f.height + 'p' : '')}${f.fps ? ` • ${f.fps}fps` : ''}`,
         type: `video/${f.ext}`,
         codec: f.vcodec,
         fps: f.fps,
@@ -56,8 +59,8 @@ async function getVideoInfo(url) {
         height: f.height
       }));
 
-    // Add audio-only
-    const audio = (info.formats || []).find(f => f.vcodec === 'none' && f.acodec !== 'none');
+    // Add audio-only option
+    const audio = allFormats.find(f => f.vcodec === 'none' && f.acodec !== 'none');
     if (audio) {
       formats.push({
         id: audio.format_id,
@@ -69,16 +72,17 @@ async function getVideoInfo(url) {
     }
 
     return {
-      title: info.title,
-      thumbnail: info.thumbnail,
-      duration: info.duration,
+      success: true,
+      title: info.title || "Untitled",
+      thumbnail: info.thumbnail || null,
+      duration: info.duration || null,
       formats,
     };
   } catch (error) {
     console.error('getVideoInfo error:', error);
     return {
-      error: error.message || 'yt-dlp failed',
-      stderr: error.stderr || null
+      success: false,
+      error: error.message || 'yt-dlp failed'
     };
   }
 }
@@ -98,13 +102,14 @@ async function downloadVideo(url, formatId, ext) {
       throw new Error('yt-dlp did not produce output file.');
     }
 
-    return { filepath, filename };
+    return { success: true, filepath, filename };
   } catch (error) {
     if (fs.existsSync(filepath)) {
       fs.unlinkSync(filepath);
     }
     console.error('downloadVideo error:', error);
     return {
+      success: false,
       error: error.message || 'Failed to download video'
     };
   }
