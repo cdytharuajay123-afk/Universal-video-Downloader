@@ -9,15 +9,18 @@ function runYtDlpCommand(args) {
     const proc = spawn('yt-dlp', args, { shell: false });
     let stdout = '';
     let stderr = '';
+
     proc.stdout.on('data', data => { stdout += data.toString(); });
     proc.stderr.on('data', data => { stderr += data.toString(); });
+
     proc.on('close', code => {
       if (code !== 0) {
         console.error('yt-dlp stderr:', stderr);
         return reject(new Error(`yt-dlp failed (code ${code}):\n${stderr}`));
       }
-      resolve(stdout);
+      resolve(stdout.trim());
     });
+
     proc.on('error', err => {
       reject(err);
     });
@@ -28,7 +31,17 @@ function runYtDlpCommand(args) {
 async function getVideoInfo(url) {
   try {
     const output = await runYtDlpCommand(['--dump-json', url]);
-    const info = JSON.parse(output);
+
+    let info;
+    try {
+      info = JSON.parse(output);
+    } catch (e) {
+      console.error("Invalid JSON from yt-dlp:", output.slice(0, 200));
+      return {
+        error: "yt-dlp did not return valid JSON",
+        raw: output.slice(0, 200) // send first part back for debugging
+      };
+    }
 
     // Include ALL video formats (even if no audio, so 4K DASH is included)
     const formats = (info.formats || [])
@@ -63,7 +76,10 @@ async function getVideoInfo(url) {
     };
   } catch (error) {
     console.error('getVideoInfo error:', error);
-    throw new Error(error.stderr || error.message || 'yt-dlp failed');
+    return {
+      error: error.message || 'yt-dlp failed',
+      stderr: error.stderr || null
+    };
   }
 }
 
@@ -88,8 +104,9 @@ async function downloadVideo(url, formatId, ext) {
       fs.unlinkSync(filepath);
     }
     console.error('downloadVideo error:', error);
-    // Pass the full yt-dlp error to the frontend
-    throw new Error(error.message || 'Failed to download video');
+    return {
+      error: error.message || 'Failed to download video'
+    };
   }
 }
 
