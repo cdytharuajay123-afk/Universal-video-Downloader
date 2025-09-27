@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const fs = require('fs');
-const downloader = require('../services/downloader');
+const downloader = require('downloader');
 
 // Get video info
 router.post('/info', async (req, res) => {
@@ -44,5 +44,6 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: error.message || 'Failed to download video' });
   }
 });
+
 
 module.exports = router;
