@@ -13,15 +13,26 @@ router.post('/info', async (req, res) => {
 
     const info = await downloader.getVideoInfo(url);
 
+    // If downloader failed or returned non-JSON
     if (info.error) {
       console.error("Video info error:", info.error);
-      return res.status(500).json(info);
+      return res.status(500).json({
+        success: false,
+        error: info.error,
+        raw: info.raw || null
+      });
     }
 
-    res.json(info);
+    res.json({
+      success: true,
+      ...info
+    });
   } catch (error) {
     console.error('Video info route error:', error);
-    res.status(500).json({ error: error.message || 'Failed to fetch video info' });
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch video info'
+    });
   }
 });
 
@@ -37,7 +48,10 @@ router.post('/', async (req, res) => {
 
     if (result.error) {
       console.error("Download error:", result.error);
-      return res.status(500).json(result);
+      return res.status(500).json({
+        success: false,
+        error: result.error
+      });
     }
 
     const { filepath, filename } = result;
@@ -45,7 +59,10 @@ router.post('/', async (req, res) => {
     // Double-check file exists
     if (!fs.existsSync(filepath)) {
       console.error('File not found after download:', filepath);
-      return res.status(500).json({ error: 'Download failed, file not found.' });
+      return res.status(500).json({
+        success: false,
+        error: 'Download failed, file not found.'
+      });
     }
 
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -57,11 +74,17 @@ router.post('/', async (req, res) => {
     stream.on('close', () => fs.unlink(filepath, () => {}));
     stream.on('error', (err) => {
       console.error('Stream error:', err);
-      res.status(500).json({ error: 'Failed to stream video file.' });
+      res.status(500).json({
+        success: false,
+        error: 'Failed to stream video file.'
+      });
     });
   } catch (error) {
     console.error('Download route error:', error);
-    res.status(500).json({ error: error.message || 'Failed to download video' });
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to download video'
+    });
   }
 });
 
