@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const downloadRoutes = require('./routes/download');
+const downloadRoutes = require('download');
 const path = require('path');
 
 require('dotenv').config();
@@ -32,4 +32,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+
 });
