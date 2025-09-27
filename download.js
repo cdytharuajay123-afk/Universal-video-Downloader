@@ -7,11 +7,20 @@ const downloader = require('../services/downloader');
 router.post('/info', async (req, res) => {
   try {
     const { url } = req.body;
-    if (!url) return res.status(400).json({ error: 'No URL provided' });
+    if (!url) {
+      return res.status(400).json({ error: 'No URL provided' });
+    }
+
     const info = await downloader.getVideoInfo(url);
+
+    if (info.error) {
+      console.error("Video info error:", info.error);
+      return res.status(500).json(info);
+    }
+
     res.json(info);
   } catch (error) {
-    console.error('Video info error:', error);
+    console.error('Video info route error:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch video info' });
   }
 });
@@ -20,32 +29,40 @@ router.post('/info', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { url, quality, format } = req.body;
-    if (!url || !quality || !format) return res.status(400).json({ error: 'Missing parameters' });
+    if (!url || !quality || !format) {
+      return res.status(400).json({ error: 'Missing parameters' });
+    }
 
-    const { filepath, filename } = await downloader.downloadVideo(url, quality, format);
+    const result = await downloader.downloadVideo(url, quality, format);
 
-    // Check if file exists before streaming
+    if (result.error) {
+      console.error("Download error:", result.error);
+      return res.status(500).json(result);
+    }
+
+    const { filepath, filename } = result;
+
+    // Double-check file exists
     if (!fs.existsSync(filepath)) {
-      console.error('File not found:', filepath);
+      console.error('File not found after download:', filepath);
       return res.status(500).json({ error: 'Download failed, file not found.' });
     }
 
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', format === 'mp3' ? 'audio/mpeg' : 'video/mp4');
+
     const stream = fs.createReadStream(filepath);
     stream.pipe(res);
+
     stream.on('close', () => fs.unlink(filepath, () => {}));
     stream.on('error', (err) => {
       console.error('Stream error:', err);
       res.status(500).json({ error: 'Failed to stream video file.' });
     });
   } catch (error) {
-    console.error('Download error:', error);
+    console.error('Download route error:', error);
     res.status(500).json({ error: error.message || 'Failed to download video' });
   }
 });
 
-
 module.exports = router;
-
-
